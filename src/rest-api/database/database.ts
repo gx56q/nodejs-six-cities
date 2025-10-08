@@ -6,7 +6,9 @@ import { config } from '../config/config.js';
 export class DatabaseClient {
   private static instance: DatabaseClient | undefined;
 
-  public constructor() { }
+  public constructor() {
+    // Singleton
+  }
 
   public static getInstance(): DatabaseClient {
     if (!DatabaseClient.instance) {

@@ -1,6 +1,7 @@
 import { CommentModel, CommentEntity } from '../models/comment.model.js';
 import type { CommentDocument } from '../models/comment.model.js';
 import { CommentDatabaseService } from '../interfaces/database.interface.js';
+import { OfferService } from './offer.service.js';
 
 export class CommentService implements CommentDatabaseService {
   public async findById(id: string): Promise<CommentDocument | null> {
@@ -16,6 +17,13 @@ export class CommentService implements CommentDatabaseService {
   public async create(data: Partial<CommentEntity>): Promise<CommentDocument> {
     const comment = new CommentModel(data);
     const savedComment = await comment.save();
+
+    if (savedComment.offer) {
+      const offerService = new OfferService();
+      await offerService.updateCommentsCount(savedComment.offer.toString());
+      await offerService.updateRating(savedComment.offer.toString());
+    }
+
     return savedComment as any;
   }
 
@@ -44,7 +52,19 @@ export class CommentService implements CommentDatabaseService {
 
   public async delete(id: string): Promise<boolean> {
     try {
+      const comment = await (CommentModel as any).findById(id).select('offer').exec();
+      if (!comment) {
+        return false;
+      }
+
       const result = await CommentModel.findByIdAndDelete(id).exec();
+
+      if (result && comment.offer) {
+        const offerService = new OfferService();
+        await offerService.updateCommentsCount(comment.offer.toString());
+        await offerService.updateRating(comment.offer.toString());
+      }
+
       return !!result;
     } catch (error) {
       return false;

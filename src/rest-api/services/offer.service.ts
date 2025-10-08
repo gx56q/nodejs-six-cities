@@ -1,6 +1,8 @@
 import { OfferModel, OfferEntity } from '../models/offer.model.js';
 import type { OfferDocument } from '../models/offer.model.js';
 import { OfferDatabaseService } from '../interfaces/database.interface.js';
+import { CommentModel } from '../models/comment.model.js';
+import { FavoriteModel } from '../models/favorite.model.js';
 
 export class OfferService implements OfferDatabaseService {
   public async findById(id: string): Promise<OfferDocument | null> {
@@ -72,6 +74,41 @@ export class OfferService implements OfferDatabaseService {
         .limit(limit);
       const result = await query.exec();
       return result as OfferDocument[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  public async updateCommentsCount(offerId: string): Promise<void> {
+    try {
+      const commentsCount = await CommentModel.countDocuments({ offer: offerId });
+      await OfferModel.findByIdAndUpdate(offerId, { commentsCount });
+    } catch (error) {
+      // Игнорируем
+    }
+  }
+
+  public async updateRating(offerId: string): Promise<void> {
+    try {
+      const comments = await (CommentModel as any).find({ offer: offerId }).exec();
+      if (comments.length === 0) {
+        await OfferModel.findByIdAndUpdate(offerId, { rating: 0 });
+        return;
+      }
+
+      const totalRating = comments.reduce((sum: number, comment: any) => sum + comment.rating, 0);
+      const averageRating = Math.round((totalRating / comments.length) * 10) / 10;
+
+      await OfferModel.findByIdAndUpdate(offerId, { rating: averageRating });
+    } catch (error) {
+      // Игнорируем
+    }
+  }
+
+  public async getFavoriteOfferIds(userId: string): Promise<string[]> {
+    try {
+      const favorites = await (FavoriteModel as any).find({ user: userId }).select('offer');
+      return favorites.map((fav: any) => fav.offer.toString());
     } catch (error) {
       return [];
     }
